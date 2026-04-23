@@ -1,0 +1,41 @@
+name: Build & Test
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Test
+        run: go test -v -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Build
+        run: go build -o bin/xixero ./cmd/xixero
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xixero-linux
+          path: bin/xixero

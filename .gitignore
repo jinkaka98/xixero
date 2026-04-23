@@ -1,0 +1,16 @@
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+.env
+vendor/
+.idea/
+.vscode/
+*.log
+node_modules/
+dist/
+web-ui/node_modules/
