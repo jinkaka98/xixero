@@ -6,25 +6,18 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"crypto/rand"
-	"encoding/hex"
-	"path/filepath"
-
-	"golang.org/x/crypto/bcrypt"
-
-	"xixero/internal/admin"
 	"xixero/internal/config"
 	"xixero/internal/license"
 	"xixero/internal/server"
 	"xixero/internal/store"
-	"xixero/internal/tunnel"
-	"xixero/internal/update"
 )
 
 var (
@@ -42,160 +35,119 @@ func main() {
 
 func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:           "xixero",
-		Short:         "Xixero local AI gateway",
+		Use:   "xixero",
+		Short: "Xixero - Local AI Gateway",
+		Long: `
+  Xixero - Local AI Gateway
+  Route AI requests from your IDE through a single local endpoint.
+
+  Quick Start:
+    xixero license <KEY>    Activate your license
+    xixero start            Start the gateway
+    xixero                  Same as 'xixero start'`,
+
+		// Running 'xixero' without subcommand = same as 'xixero start'
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStart()
+		},
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 
 	rootCmd.AddCommand(newStartCmd())
+	rootCmd.AddCommand(newLicenseCmd())
+	rootCmd.AddCommand(newStopCmd())
 	rootCmd.AddCommand(newVersionCmd())
-	rootCmd.AddCommand(newUpdateCmd())
-	rootCmd.AddCommand(newActivateCmd())
-	rootCmd.AddCommand(newAdminCmd())
+	rootCmd.AddCommand(newStatusCmd())
 
 	return rootCmd
 }
 
+// ─── START ───
+
 func newStartCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
-		Short: "Start the Xixero HTTP server",
+		Short: "Start the Xixero gateway server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return fmt.Errorf("load config: %w", err)
-			}
-
-			// Redirect logs to file, keep terminal clean
-			server.InitSilentLogging()
-
-			srv := server.New(cfg)
-			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-			defer stop()
-
-			errCh := make(chan error, 1)
-
-			go func() {
-				if serveErr := srv.Start(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-					errCh <- serveErr
-					return
-				}
-				errCh <- nil
-			}()
-
-			// Print clean banner
-			url := fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
-			printBanner(url, cfg)
-
-			select {
-			case <-ctx.Done():
-				fmt.Println("\n  Shutting down...")
-				shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-
-				if err := srv.Shutdown(shutdownCtx); err != nil {
-					return fmt.Errorf("shutdown server: %w", err)
-				}
-
-				if serveErr := <-errCh; serveErr != nil {
-					return fmt.Errorf("server exited: %w", serveErr)
-				}
-
-				fmt.Println("  Stopped.")
-				return nil
-			case serveErr := <-errCh:
-				if serveErr != nil {
-					return fmt.Errorf("start server: %w", serveErr)
-				}
-				return nil
-			}
+			return runStart()
 		},
 	}
 }
 
-func printBanner(url string, cfg *config.Config) {
-	hasLicense := cfg.License.Key != ""
-
-	fmt.Println()
-	fmt.Println("  __  __ ___ __  __ _____ ____   ___  ")
-	fmt.Println("  \\ \\/ /|_ _|\\ \\/ /| ____|  _ \\ / _ \\ ")
-	fmt.Println("   \\  /  | |  \\  / |  _| | |_) | | | |")
-	fmt.Println("   /  \\  | |  /  \\ | |___|  _ <| |_| |")
-	fmt.Println("  /_/\\_\\|___|/_/\\_\\|_____|_| \\_\\\\___/ ")
-	fmt.Println()
-	fmt.Printf("  v%s\n", Version)
-	fmt.Println()
-	fmt.Println("  ----------------------------------------")
-
-	if hasLicense {
-		fmt.Println("  Status    : Active")
-	} else {
-		fmt.Println("  Status    : No license key")
-		fmt.Println()
-		fmt.Println("  Get your activation key:")
-		fmt.Println("    Discord : xixero1445")
-		fmt.Println("    Send DM to request a key")
-		fmt.Println()
-		fmt.Println("  Then run:")
-		fmt.Println("    xixero activate <YOUR-KEY>")
+func runStart() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
-	fmt.Println("  ----------------------------------------")
+	// Check license FIRST
+	enf := license.NewEnforcer(config.ConfigDir(), "")
+	if !enf.IsValid() && cfg.License.Key == "" {
+		printBanner(cfg)
+		fmt.Println()
+		fmt.Println("  ERROR: No license key found.")
+		fmt.Println()
+		fmt.Println("  To get started:")
+		fmt.Println("    1. Get a key: Discord @xixero1445 (send DM)")
+		fmt.Println("    2. Activate:  xixero license <YOUR-KEY>")
+		fmt.Println("    3. Start:     xixero start")
+		fmt.Println()
+		return fmt.Errorf("license required")
+	}
+
+	// Redirect logs to file
+	server.InitSilentLogging()
+
+	srv := server.New(cfg)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	errCh := make(chan error, 1)
+	go func() {
+		if serveErr := srv.Start(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			errCh <- serveErr
+			return
+		}
+		errCh <- nil
+	}()
+
+	// Print banner
+	printBanner(cfg)
+	url := fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
 	fmt.Println()
 	fmt.Printf("  Dashboard : %s\n", url)
-	fmt.Println()
 	fmt.Println("  Press Ctrl+C to stop")
 	fmt.Println()
-}
 
-
-func newVersionCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print build version information",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("version=%s commit=%s date=%s\n", Version, Commit, Date)
-		},
+	// Wait
+	select {
+	case <-ctx.Done():
+		fmt.Println("\n  Shutting down...")
+		shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		srv.Shutdown(shutCtx)
+		<-errCh
+		fmt.Println("  Stopped.")
+		return nil
+	case serveErr := <-errCh:
+		return serveErr
 	}
 }
 
-func newUpdateCmd() *cobra.Command {
+// ─── LICENSE ───
+
+func newLicenseCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "update",
-		Short: "Check for updates and apply",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			u := update.New(Version)
+		Use:   "license <KEY>",
+		Short: "Activate a license key",
+		Long: `Activate your Xixero license key.
 
-			fmt.Println("Checking for updates...")
-			result, release, err := u.Check()
-			if err != nil {
-				return fmt.Errorf("check update: %w", err)
-			}
+  Get a key by sending a DM to @xixero1445 on Discord.
 
-			if !result.HasUpdate {
-				fmt.Printf("Already up to date (v%s)\n", result.Current)
-				return nil
-			}
-
-			fmt.Printf("Update available: v%s -> v%s\n", result.Current, result.Latest)
-			fmt.Println("Downloading...")
-
-			if err := u.Apply(release); err != nil {
-				return fmt.Errorf("apply update: %w", err)
-			}
-
-			fmt.Printf("Updated to v%s. Restart xixero to apply.\n", result.Latest)
-			return nil
-		},
-	}
-}
-
-func newActivateCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "activate [license-key]",
-		Short: "Activate license key",
-		Args:  cobra.ExactArgs(1),
+  Example:
+    xixero license XIXERO-ABCDE-12345-FGHIJ`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			licenseKey := args[0]
 
@@ -208,15 +160,13 @@ func newActivateCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			validationURL := "https://raw.githubusercontent.com/jinkaka98/xixero/main/tunnel-config.json"
-			if cfg.License.ValidationURLSource != "" {
-				validationURL = cfg.License.ValidationURLSource
-			}
+			enf := license.NewEnforcer(config.ConfigDir(), "")
 
-			enf := license.NewEnforcer(config.ConfigDir(), validationURL)
+			fmt.Println()
+			fmt.Println("  Validating license...")
 
-			fmt.Println("Validating license...")
 			if err := enf.Activate(licenseKey); err != nil {
+				fmt.Println("  FAILED")
 				return fmt.Errorf("activation failed: %w", err)
 			}
 
@@ -225,283 +175,107 @@ func newActivateCmd() *cobra.Command {
 				return fmt.Errorf("save config: %w", err)
 			}
 
-			fmt.Println("License activated!")
+			fmt.Println("  License activated!")
+			fmt.Println()
+			fmt.Println("  You can now start Xixero:")
+			fmt.Println("    xixero start")
+			fmt.Println("    xixero        (same thing)")
+			fmt.Println()
 			return nil
 		},
 	}
+}
+
+// ─── STOP ───
+
+func newStopCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "stop",
+		Short: "Stop the running Xixero server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Find and kill xixero processes (except this one)
+			myPid := os.Getpid()
+			fmt.Printf("  Stopping Xixero (my PID: %d)...\n", myPid)
+
+			// Use taskkill on Windows
+			killCmd := fmt.Sprintf("Get-Process xixero -ErrorAction SilentlyContinue | Where-Object { $_.Id -ne %d } | Stop-Process -Force", myPid)
+			runPowershell(killCmd)
+
+			fmt.Println("  Stopped.")
+			return nil
+		},
+	}
+}
+
+// ─── VERSION ───
+
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Show version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println()
+			fmt.Printf("  Xixero v%s\n", Version)
+			fmt.Printf("  Build:  %s (%s)\n", Commit, Date)
+			fmt.Println()
+		},
+	}
+}
+
+// ─── STATUS ───
+
+func newStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Check if Xixero server is running",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println()
+
+			// Check if server is running
+			client := &http.Client{Timeout: 2 * time.Second}
+			resp, err := client.Get("http://localhost:7860/api/status")
+			if err != nil {
+				fmt.Println("  Status: Not running")
+				fmt.Println()
+				fmt.Println("  Start with: xixero start")
+			} else {
+				defer resp.Body.Close()
+				fmt.Println("  Status: Running")
+				fmt.Println("  URL:    http://localhost:7860")
+			}
+
+			// Check license
+			cfg, _ := config.Load()
+			if cfg != nil && cfg.License.Key != "" {
+				fmt.Println("  License: Active")
+			} else {
+				fmt.Println("  License: Not activated")
+			}
+			fmt.Println()
+		},
+	}
+}
+
+// ─── BANNER ───
+
+func printBanner(cfg *config.Config) {
+	fmt.Println()
+	fmt.Println("  __  __ ___ __  __ _____ ____   ___  ")
+	fmt.Println("  \\ \\/ /|_ _|\\ \\/ /| ____|  _ \\ / _ \\ ")
+	fmt.Println("   \\  /  | |  \\  / |  _| | |_) | | | |")
+	fmt.Println("   /  \\  | |  /  \\ | |___|  _ <| |_| |")
+	fmt.Println("  /_/\\_\\|___|/_/\\_\\|_____|_| \\_\\\\___/ ")
+	fmt.Println()
+	fmt.Printf("  v%s\n", Version)
+}
+
+// ─── HELPERS ───
+
+func runPowershell(script string) {
+	c := exec.Command("powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", script)
+	c.Run()
 }
 
 func adminDBPath() string {
 	return filepath.Join(config.ConfigDir(), "admin.db")
-}
-
-func newAdminCmd() *cobra.Command {
-	adminCmd := &cobra.Command{
-		Use:   "admin",
-		Short: "Admin management commands",
-	}
-
-	adminCmd.AddCommand(newAdminInitCmd())
-	adminCmd.AddCommand(newAdminStartCmd())
-	adminCmd.AddCommand(newAdminGenLicenseCmd())
-	adminCmd.AddCommand(newAdminRevokeLicenseCmd())
-	adminCmd.AddCommand(newAdminListLicensesCmd())
-
-	return adminCmd
-}
-
-func newAdminInitCmd() *cobra.Command {
-	var username, password string
-
-	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Initialize admin credentials and database",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if username == "" {
-				username = "admin"
-			}
-			if password == "" {
-				return fmt.Errorf("--password is required")
-			}
-
-			s, err := store.Open(adminDBPath())
-			if err != nil {
-				return err
-			}
-			defer s.Close()
-
-			hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-			if err != nil {
-				return err
-			}
-
-			if err := s.SetAdminCredentials(username, string(hash)); err != nil {
-				return err
-			}
-
-			secretBytes := make([]byte, 32)
-			rand.Read(secretBytes)
-			secretKey := hex.EncodeToString(secretBytes)
-
-			fmt.Println("Admin initialized!")
-			fmt.Printf("  Username:   %s\n", username)
-			fmt.Printf("  Secret Key: %s\n", secretKey)
-			fmt.Println("  Save the secret key — you'll need it for admin start.")
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&username, "username", "admin", "Admin username")
-	cmd.Flags().StringVar(&password, "password", "", "Admin password")
-	cmd.MarkFlagRequired("password")
-
-	return cmd
-}
-
-func newAdminStartCmd() *cobra.Command {
-	var secretKey, ghToken, ghRepo, ghFile string
-	var port int
-	var enableTunnel bool
-
-	cmd := &cobra.Command{
-		Use:   "start",
-		Short: "Start admin server with tunnel",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			s, err := store.Open(adminDBPath())
-			if err != nil {
-				return err
-			}
-			defer s.Close()
-
-			srv := admin.NewServer(s, port, secretKey)
-
-			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-			defer stop()
-
-			errCh := make(chan error, 1)
-			go func() {
-				fmt.Printf("Admin API on http://localhost:%d\n", port)
-				if err := srv.Start(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-					errCh <- err
-					return
-				}
-				errCh <- nil
-			}()
-
-			var tun *tunnel.Tunnel
-			var ghSync *tunnel.GitHubSync
-
-			if enableTunnel {
-				time.Sleep(1 * time.Second)
-				tun, err = tunnel.Start(port)
-				if err != nil {
-					fmt.Printf("Warning: tunnel failed: %s\n", err)
-				} else {
-					fmt.Printf("Tunnel: %s\n", tun.URL)
-
-					if ghToken != "" && ghRepo != "" {
-						parts := splitRepo(ghRepo)
-						ghSync = tunnel.NewGitHubSync(ghToken, parts[0], parts[1], ghFile)
-						if err := ghSync.PushTunnelURL(tun.URL); err != nil {
-							fmt.Printf("Warning: GitHub sync failed: %s\n", err)
-						} else {
-							fmt.Println("Tunnel URL pushed to GitHub")
-						}
-					}
-				}
-			}
-
-			select {
-			case <-ctx.Done():
-				if tun != nil {
-					tun.Stop()
-				}
-				if ghSync != nil {
-					ghSync.SetOffline()
-				}
-				shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				srv.Shutdown(shutCtx)
-				<-errCh
-				return nil
-			case err := <-errCh:
-				return err
-			}
-		},
-	}
-
-	cmd.Flags().StringVar(&secretKey, "secret", "", "Admin secret key (from admin init)")
-	cmd.Flags().IntVar(&port, "port", 7861, "Admin server port")
-	cmd.Flags().BoolVar(&enableTunnel, "tunnel", false, "Enable trycloudflare tunnel")
-	cmd.Flags().StringVar(&ghToken, "gh-token", "", "GitHub personal access token")
-	cmd.Flags().StringVar(&ghRepo, "gh-repo", "jinkaka98/xixero", "GitHub repo for tunnel config")
-	cmd.Flags().StringVar(&ghFile, "gh-file", "tunnel-config.json", "Tunnel config file path in repo")
-	cmd.MarkFlagRequired("secret")
-
-	return cmd
-}
-
-func newAdminGenLicenseCmd() *cobra.Command {
-	var name string
-	var days int
-
-	cmd := &cobra.Command{
-		Use:   "generate-license",
-		Short: "Generate a new license key",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			s, err := store.Open(adminDBPath())
-			if err != nil {
-				return err
-			}
-			defer s.Close()
-
-			lic, err := s.CreateLicense(name, time.Duration(days)*24*time.Hour)
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("License generated!\n")
-			fmt.Printf("  Key:     %s\n", lic.Key)
-			fmt.Printf("  Name:    %s\n", lic.Name)
-			fmt.Printf("  Expires: %s\n", lic.ExpiresAt.Format("2006-01-02"))
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVar(&name, "name", "", "License holder name")
-	cmd.Flags().IntVar(&days, "days", 365, "License duration in days")
-	cmd.MarkFlagRequired("name")
-
-	return cmd
-}
-
-func newAdminRevokeLicenseCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "revoke-license [key]",
-		Short: "Revoke a license key",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			s, err := store.Open(adminDBPath())
-			if err != nil {
-				return err
-			}
-			defer s.Close()
-
-			if err := s.RevokeLicense(args[0]); err != nil {
-				return err
-			}
-			fmt.Println("License revoked.")
-			return nil
-		},
-	}
-}
-
-func newAdminListLicensesCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list-licenses",
-		Short: "List all licenses",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			s, err := store.Open(adminDBPath())
-			if err != nil {
-				return err
-			}
-			defer s.Close()
-
-			licenses, err := s.ListLicenses()
-			if err != nil {
-				return err
-			}
-
-			if len(licenses) == 0 {
-				fmt.Println("No licenses found.")
-				return nil
-			}
-
-			fmt.Printf("%-40s %-15s %-12s %-10s\n", "KEY", "NAME", "EXPIRES", "STATUS")
-			fmt.Println(fmt.Sprintf("%s", "────────────────────────────────────────────────────────────────────────────────"))
-			for _, l := range licenses {
-				status := "active"
-				if l.Revoked {
-					status = "revoked"
-				} else if time.Now().After(l.ExpiresAt) {
-					status = "expired"
-				}
-				fmt.Printf("%-40s %-15s %-12s %-10s\n", l.Key, l.Name, l.ExpiresAt.Format("2006-01-02"), status)
-			}
-			return nil
-		},
-	}
-}
-
-func splitRepo(repo string) [2]string {
-	parts := [2]string{"jinkaka98", "xixero"}
-	for i, p := range split(repo, "/") {
-		if i < 2 {
-			parts[i] = p
-		}
-	}
-	return parts
-}
-
-func split(s, sep string) []string {
-	var result []string
-	for s != "" {
-		idx := indexOf(s, sep)
-		if idx < 0 {
-			result = append(result, s)
-			break
-		}
-		result = append(result, s[:idx])
-		s = s[idx+len(sep):]
-	}
-	return result
-}
-
-func indexOf(s, sub string) int {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return i
-		}
-	}
-	return -1
 }

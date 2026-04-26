@@ -1,19 +1,19 @@
-import { useState, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Providers from './pages/Providers'
 import Routing from './pages/Routing'
 import Chat from './pages/Chat'
-import TokenInput from './pages/TokenInput'
+import { api } from './lib/api'
 
 /**
- * VITE_PUBLIC_BUILD=true  -> User UI only (for GitHub Pages / localhost:7860)
- * VITE_PUBLIC_BUILD=false -> User UI + Admin panel (local dev only)
- *
- * Admin code is NEVER shipped in public builds.
+ * Web UI - No login page needed.
+ * License check happens in terminal (xixero license <KEY>).
+ * If this page loads, server is running = user is licensed.
+ * API token auto-injected by Go server via window.XIXERO_CONFIG.
  */
+
 const isPublicBuild = import.meta.env.VITE_PUBLIC_BUILD === 'true'
 
 function LoadingScreen() {
@@ -27,14 +27,7 @@ function LoadingScreen() {
   )
 }
 
-function ProtectedRoute({ children }) {
-  const { authenticated, loading } = useAuth()
-  if (loading) return <LoadingScreen />
-  if (!authenticated) return <Navigate to="/auth" />
-  return children
-}
-
-// Admin - only loaded in dev mode
+// Admin - only in dev mode
 const LazyAdminLogin = !isPublicBuild ? lazy(() => import('./admin/pages/AdminLogin')) : null
 const LazyAdminDashboard = !isPublicBuild ? lazy(() => import('./admin/pages/AdminDashboard')) : null
 const LazyAdminLicenses = !isPublicBuild ? lazy(() => import('./admin/pages/AdminLicenses')) : null
@@ -62,29 +55,35 @@ function AdminGuard() {
 }
 
 export default function App() {
+  // Auto-set API token from Go server
+  useEffect(() => {
+    const token = window.XIXERO_CONFIG?.apiToken
+    if (token) {
+      api.setToken(token)
+    }
+  }, [])
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/auth" element={<TokenInput />} />
-
-          {!isPublicBuild && (
-            <Route path="/admin" element={<AdminGuard />}>
-              <Route index element={<Suspense fallback={<LoadingScreen />}><LazyAdminDashboard /></Suspense>} />
-              <Route path="licenses" element={<Suspense fallback={<LoadingScreen />}><LazyAdminLicenses /></Suspense>} />
-            </Route>
-          )}
-
-          <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-            <Route index element={<Dashboard />} />
-            <Route path="providers" element={<Providers />} />
-            <Route path="routing" element={<Routing />} />
-            <Route path="chat" element={<Chat />} />
+    <BrowserRouter>
+      <Routes>
+        {/* Admin - dev mode only */}
+        {!isPublicBuild && (
+          <Route path="/admin" element={<AdminGuard />}>
+            <Route index element={<Suspense fallback={<LoadingScreen />}><LazyAdminDashboard /></Suspense>} />
+            <Route path="licenses" element={<Suspense fallback={<LoadingScreen />}><LazyAdminLicenses /></Suspense>} />
           </Route>
+        )}
 
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        {/* Dashboard - langsung, tanpa login */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="providers" element={<Providers />} />
+          <Route path="routing" element={<Routing />} />
+          <Route path="chat" element={<Chat />} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </BrowserRouter>
   )
 }

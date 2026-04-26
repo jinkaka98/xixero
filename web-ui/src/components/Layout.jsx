@@ -1,8 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
 
 export default function Layout() {
-  const { logout } = useAuth()
 
   const navItems = [
     { 
@@ -110,19 +108,6 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-
-        {/* Logout button */}
-        <div className="p-4 border-t border-cyan-500/30">
-          <button
-            onClick={logout}
-            className="group w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-all duration-300 border border-transparent hover:border-red-500/30 font-mono"
-          >
-            <svg className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-            </svg>
-            <span>Disconnect</span>
-          </button>
-        </div>
 
         {/* Decorative corner */}
         <div className="absolute bottom-0 right-0 w-20 h-20 border-b-2 border-r-2 border-cyan-400/30"></div>

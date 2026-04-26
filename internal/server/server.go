@@ -149,7 +149,7 @@ body{background:#0a0a0f;color:#e8e4df;font-family:monospace;min-height:100vh}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <script>
-window.XIXERO_CONFIG={apiBase:"http://localhost:%d"};
+window.XIXERO_CONFIG={apiBase:"http://localhost:%d",apiToken:"%s"};
 </script>
 </head>
 <body>
@@ -162,7 +162,7 @@ window.XIXERO_CONFIG={apiBase:"http://localhost:%d"};
 <script type="module" crossorigin src="https://jinkaka98.github.io/ui/assets/app.js"></script>
 <link rel="stylesheet" crossorigin href="https://jinkaka98.github.io/ui/assets/index.css">
 </body>
-</html>`, s.config.Server.Port)
+</html>`, s.config.Server.Port, s.config.APIToken)
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
