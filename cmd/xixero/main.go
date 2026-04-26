@@ -143,48 +143,161 @@ func runStart() error {
 // ─── LICENSE ───
 
 func newLicenseCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "license <KEY>",
-		Short: "Activate a license key",
-		Long: `Activate your Xixero license key.
+	licenseCmd := &cobra.Command{
+		Use:   "license",
+		Short: "Manage license (activate, view, remove)",
+		Long: `Manage your Xixero license.
 
-  Get a key by sending a DM to @xixero1445 on Discord.
+  Commands:
+    xixero license <KEY>       Activate a license key
+    xixero license view        View current license info
+    xixero license remove      Remove license from this machine
 
-  Example:
-    xixero license XIXERO-ABCDE-12345-FGHIJ`,
-		Args: cobra.ExactArgs(1),
+  Get a key by sending a DM to @xixero1445 on Discord.`,
+
+		// xixero license <KEY> (direct activation without subcommand)
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			licenseKey := args[0]
-
-			if err := store.ValidateKeyFormat(licenseKey); err != nil {
-				return err
+			if len(args) == 0 {
+				return cmd.Help()
 			}
+			return runLicenseActivate(args[0])
+		},
+	}
+
+	licenseCmd.AddCommand(newLicenseViewCmd())
+	licenseCmd.AddCommand(newLicenseRemoveCmd())
+
+	return licenseCmd
+}
+
+func runLicenseActivate(licenseKey string) error {
+	if err := store.ValidateKeyFormat(licenseKey); err != nil {
+		return err
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	enf := license.NewEnforcer(config.ConfigDir(), "")
+
+	fmt.Println()
+	fmt.Println("  Validating license...")
+
+	if err := enf.Activate(licenseKey); err != nil {
+		fmt.Println("  FAILED")
+		return fmt.Errorf("activation failed: %w", err)
+	}
+
+	cfg.License.Key = licenseKey
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("save config: %w", err)
+	}
+
+	fmt.Println("  License activated!")
+	fmt.Println()
+	fmt.Println("  You can now start Xixero:")
+	fmt.Println("    xixero start")
+	fmt.Println("    xixero        (same thing)")
+	fmt.Println()
+	return nil
+}
+
+func newLicenseViewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "view",
+		Short: "View current license information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println()
+
+			cfg, err := config.Load()
+			if err != nil || cfg.License.Key == "" {
+				fmt.Println("  License: Not activated")
+				fmt.Println()
+				fmt.Println("  Activate with:")
+				fmt.Println("    xixero license <YOUR-KEY>")
+				fmt.Println()
+				return
+			}
+
+			// Show key (masked)
+			key := cfg.License.Key
+			masked := key
+			if len(key) > 12 {
+				masked = key[:12] + strings.Repeat("*", len(key)-16) + key[len(key)-4:]
+			}
+
+			fmt.Printf("  Key     : %s\n", masked)
+
+			// Show cache info
+			enf := license.NewEnforcer(config.ConfigDir(), "")
+			if enf.IsValid() {
+				fmt.Println("  Status  : Active")
+			} else {
+				fmt.Println("  Status  : Expired or invalid")
+			}
+
+			// Read cache file for more details
+			cachePath := filepath.Join(config.ConfigDir(), "license-cache.json")
+			data, err := os.ReadFile(cachePath)
+			if err == nil {
+				var cache struct {
+					Name        string    `json:"name"`
+					ValidatedAt time.Time `json:"validated_at"`
+					ExpiresAt   time.Time `json:"expires_at"`
+					Features    []string  `json:"features"`
+				}
+				if json.Unmarshal(data, &cache) == nil {
+					fmt.Printf("  Name    : %s\n", cache.Name)
+					fmt.Printf("  Expires : %s\n", cache.ExpiresAt.Format("2006-01-02"))
+					fmt.Printf("  Checked : %s\n", cache.ValidatedAt.Format("2006-01-02 15:04"))
+					if len(cache.Features) > 0 {
+						fmt.Printf("  Features: %s\n", strings.Join(cache.Features, ", "))
+					}
+				}
+			}
+			fmt.Println()
+		},
+	}
+}
+
+func newLicenseRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove",
+		Short: "Remove license from this machine",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println()
 
 			cfg, err := config.Load()
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
 
-			enf := license.NewEnforcer(config.ConfigDir(), "")
-
-			fmt.Println()
-			fmt.Println("  Validating license...")
-
-			if err := enf.Activate(licenseKey); err != nil {
-				fmt.Println("  FAILED")
-				return fmt.Errorf("activation failed: %w", err)
+			if cfg.License.Key == "" {
+				fmt.Println("  No license to remove.")
+				fmt.Println()
+				return nil
 			}
 
-			cfg.License.Key = licenseKey
+			// Clear license from config
+			cfg.License.Key = ""
+			cfg.License.ValidatedAt = ""
+			cfg.License.ExpiresAt = ""
+			cfg.License.Features = nil
 			if err := cfg.Save(); err != nil {
 				return fmt.Errorf("save config: %w", err)
 			}
 
-			fmt.Println("  License activated!")
+			// Remove cache file
+			cachePath := filepath.Join(config.ConfigDir(), "license-cache.json")
+			os.Remove(cachePath)
+
+			fmt.Println("  License removed.")
 			fmt.Println()
-			fmt.Println("  You can now start Xixero:")
-			fmt.Println("    xixero start")
-			fmt.Println("    xixero        (same thing)")
+			fmt.Println("  Xixero will not start until a new license is activated:")
+			fmt.Println("    xixero license <NEW-KEY>")
 			fmt.Println()
 			return nil
 		},
