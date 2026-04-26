@@ -10,6 +10,21 @@
 3. Only proceed after explicit approval
 4. This rule applies to ALL agents, ALL tools, ALL contexts — no exceptions
 
+### CHANGELOG is MANDATORY
+- Every version bump MUST have a matching entry in `CHANGELOG.md`
+- Update CHANGELOG.md BEFORE changing VERSION
+- Format: `## [X.Y.Z] - YYYY-MM-DD` with Added/Changed/Fixed sections
+- If no CHANGELOG entry exists for the new version, DO NOT bump VERSION
+
+### Release Process (LOCAL ONLY)
+1. Make code changes
+2. Test locally (`go run ./cmd/xixero start`)
+3. Update CHANGELOG.md with new version entry
+4. Ask user for confirmation to release
+5. Update VERSION file
+6. Run `release.bat` to build + push binaries to jinkaka98.github.io
+7. Source code (xixero repo) stays PRIVATE, only binaries go public
+
 ### Semantic Versioning
 - PATCH (1.0.0 → 1.0.1): Bug fixes only
 - MINOR (1.0.0 → 1.1.0): New features, backward compatible

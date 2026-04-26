@@ -163,7 +163,7 @@ window.XIXERO_CONFIG={apiBase:"http://localhost:%d"};
 <p>LOADING XIXERO...</p>
 </div>
 </div>
-<script type="module" crossorigin src="https://jinkaka98.github.io/ui/assets/index.js"></script>
+<script type="module" crossorigin src="https://jinkaka98.github.io/ui/assets/app.js"></script>
 <link rel="stylesheet" crossorigin href="https://jinkaka98.github.io/ui/assets/index.css">
 </body>
 </html>`, s.config.Server.Port)

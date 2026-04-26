@@ -7,19 +7,19 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
-    // GitHub Pages uses repo name as base path
-    // Local dev uses root
-    base: isPublic ? '/xixero/' : '/',
+    base: isPublic ? '/' : '/',
     define: {
       'import.meta.env.VITE_PUBLIC_BUILD': JSON.stringify(process.env.VITE_PUBLIC_BUILD || 'false'),
     },
     build: {
-      // In public build, exclude admin code via tree-shaking
-      rollupOptions: isPublic ? {
+      rollupOptions: {
         output: {
-          manualChunks: undefined,
+          // Stable filenames (no hash) so Go server can reference them
+          entryFileNames: 'assets/app.js',
+          chunkFileNames: 'assets/[name].js',
+          assetFileNames: 'assets/[name][extname]',
         },
-      } : {},
+      },
     },
   }
 })
