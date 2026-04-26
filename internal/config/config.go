@@ -63,7 +63,7 @@ type LogConfig struct {
 }
 
 func ConfigDir() string {
-	return filepath.Join(os.Getenv("LOCALAPPDATA"), "xixero")
+	return filepath.Join(os.Getenv("LOCALAPPDATA"), "xixero1445")
 }
 
 func ConfigPath() string {

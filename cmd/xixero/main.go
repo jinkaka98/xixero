@@ -190,7 +190,7 @@ func newActivateCmd() *cobra.Command {
 }
 
 func adminDBPath() string {
-	return filepath.Join(config.ConfigDir(), "xixero-admin.db")
+	return filepath.Join(config.ConfigDir(), "admin.db")
 }
 
 func newAdminCmd() *cobra.Command {

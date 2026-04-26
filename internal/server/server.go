@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os/exec"
+	"runtime"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -66,7 +68,26 @@ func New(cfg *config.Config) *Server {
 }
 
 func (s *Server) Start() error {
+	// Auto-open browser after short delay
+	go func() {
+		time.Sleep(800 * time.Millisecond)
+		url := fmt.Sprintf("http://localhost:%d", s.config.Server.Port)
+		openBrowser(url)
+	}()
 	return s.httpServer.ListenAndServe()
+}
+
+func openBrowser(url string) {
+	var err error
+	switch runtime.GOOS {
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = exec.Command("xdg-open", url).Start()
+	}
+	_ = err
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
@@ -81,6 +102,13 @@ func (s *Server) setupMiddleware() {
 
 func (s *Server) setupRoutes() {
 	h := api.NewHandlers(s.config, s.registry)
+
+	// UI shell - serves HTML that loads React app from GitHub Pages
+	s.router.HandleFunc("/", s.handleUI).Methods(http.MethodGet)
+	s.router.HandleFunc("/auth", s.handleUI).Methods(http.MethodGet)
+	s.router.HandleFunc("/providers", s.handleUI).Methods(http.MethodGet)
+	s.router.HandleFunc("/routing", s.handleUI).Methods(http.MethodGet)
+	s.router.HandleFunc("/chat", s.handleUI).Methods(http.MethodGet)
 
 	proxyRoutes := s.router.PathPrefix("/v1").Subrouter()
 	proxyRoutes.Use(s.licenseMiddleware)
@@ -104,6 +132,41 @@ func (s *Server) setupRoutes() {
 	mgmt.HandleFunc("/routing-rules", h.CreateRoutingRule).Methods(http.MethodPost, http.MethodOptions)
 	mgmt.HandleFunc("/routing-rules/{id}", h.UpdateRoutingRule).Methods(http.MethodPut, http.MethodOptions)
 	mgmt.HandleFunc("/routing-rules/{id}", h.DeleteRoutingRule).Methods(http.MethodDelete, http.MethodOptions)
+}
+
+func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xixero</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a0f;color:#e8e4df;font-family:monospace;min-height:100vh}
+#app{min-height:100vh}
+.loader{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,140,0,0.2);border-top-color:#ff8c00;border-radius:50%%;animation:spin 0.8s linear infinite}
+.loader p{color:#6b6560;font-size:13px;letter-spacing:0.1em}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<script>
+window.XIXERO_CONFIG={apiBase:"http://localhost:%d"};
+</script>
+</head>
+<body>
+<div id="root">
+<div class="loader">
+<div class="spinner"></div>
+<p>LOADING XIXERO...</p>
+</div>
+</div>
+<script type="module" crossorigin src="https://jinkaka98.github.io/ui/assets/index.js"></script>
+<link rel="stylesheet" crossorigin href="https://jinkaka98.github.io/ui/assets/index.css">
+</body>
+</html>`, s.config.Server.Port)
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
