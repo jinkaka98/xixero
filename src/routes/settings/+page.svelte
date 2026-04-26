@@ -11,9 +11,9 @@
 		Calendar,
 		LogOut,
 		Network,
-		Info,
-		Zap
+		Info
 	} from 'lucide-svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let saving = $state(false);
 	let deactivating = $state(false);
@@ -201,9 +201,7 @@
 		</div>
 
 		<div class="flex items-center gap-4">
-			<div class="p-2.5 rounded-xl bg-primary-500/10 border border-primary-500/20">
-				<Zap size={20} class="text-primary-400" />
-			</div>
+			<Logo size={36} class="rounded-lg" />
 			<div>
 				<p class="text-sm font-semibold text-surface-200">Xixero</p>
 				<p class="text-xs text-surface-500">v0.1.0 &middot; Local AI Reverse Proxy</p>

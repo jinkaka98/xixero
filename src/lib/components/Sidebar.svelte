@@ -10,9 +10,9 @@
 		Settings,
 		PanelLeftClose,
 		PanelLeft,
-		Zap,
 		Circle
 	} from 'lucide-svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	const navItems = [
 		{ id: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -34,15 +34,11 @@
 	<div class="flex items-center h-14 px-3 shrink-0">
 		{#if collapsed}
 			<div class="flex items-center justify-center w-full">
-				<div class="p-1.5 rounded-lg bg-primary-500/15 border border-primary-500/20">
-					<Zap size={20} class="text-primary-400" />
-				</div>
+				<Logo size={28} />
 			</div>
 		{:else}
 			<div class="flex items-center gap-3 px-1">
-				<div class="p-1.5 rounded-lg bg-primary-500/15 border border-primary-500/20 shrink-0">
-					<Zap size={20} class="text-primary-400" />
-				</div>
+				<Logo size={28} class="shrink-0" />
 				<span class="font-bold text-lg text-surface-50 truncate">Xixero</span>
 			</div>
 		{/if}

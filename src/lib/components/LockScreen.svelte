@@ -11,9 +11,9 @@
 		Cpu,
 		Shield,
 		Fingerprint,
-		Wifi,
-		Zap
+		Wifi
 	} from 'lucide-svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let inputKey = $state('');
 
@@ -51,9 +51,7 @@
 		<div class="relative z-10 flex flex-col items-center justify-center w-full p-12">
 			<div class="flex flex-col items-center gap-8 max-w-md text-center">
 				<!-- Logo -->
-				<div class="p-4 rounded-2xl bg-primary-500/15 border border-primary-500/20">
-					<Zap size={48} class="text-primary-400" />
-				</div>
+				<Logo size={80} class="rounded-2xl" />
 
 				<div class="flex flex-col gap-3">
 					<h1 class="text-4xl font-bold tracking-tight text-surface-50">Xixero</h1>
@@ -106,9 +104,7 @@
 		<div class="w-full max-w-sm flex flex-col gap-8 animate-slide-up">
 			<!-- Mobile logo -->
 			<div class="flex lg:hidden flex-col items-center gap-3 mb-4">
-				<div class="p-3 rounded-xl bg-primary-500/15 border border-primary-500/20">
-					<Zap size={32} class="text-primary-400" />
-				</div>
+				<Logo size={56} class="rounded-2xl" />
 				<h1 class="text-2xl font-bold text-surface-50">Xixero</h1>
 			</div>
 

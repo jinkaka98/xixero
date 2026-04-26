@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
+	import favicon from '$lib/assets/logo.png';
 	import { appState, proxyState, configState } from '$lib/stores.svelte.js';
 	import { commands } from '$lib/tauri.js';
 	import LockScreen from '$lib/components/LockScreen.svelte';

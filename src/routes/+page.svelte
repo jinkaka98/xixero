@@ -10,9 +10,9 @@
 		Activity,
 		Copy,
 		Check,
-		Zap,
 		BookOpen
 	} from 'lucide-svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let isToggling = $state(false);
 	let copied = $state(false);
@@ -60,9 +60,7 @@
 	<div class="bg-surface-900 border border-surface-800 rounded-xl p-6 transition-colors duration-200 hover:border-surface-700">
 		<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 			<div class="flex items-center gap-4">
-				<div class="p-3 rounded-xl transition-colors duration-200 {proxyState.running ? 'bg-primary-500/15 glow-primary-sm' : 'bg-surface-800'}">
-					<Zap size={24} class="transition-colors duration-200 {proxyState.running ? 'text-primary-400' : 'text-surface-500'}" />
-				</div>
+				<Logo size={40} class="rounded-xl transition-opacity duration-200 {proxyState.running ? 'opacity-100' : 'opacity-40'}" />
 				<div>
 					<h3 class="text-lg font-semibold text-surface-50">Proxy Server</h3>
 					<p class="text-sm text-surface-400">

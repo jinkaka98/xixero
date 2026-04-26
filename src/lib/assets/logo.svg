@@ -1,10 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 180" fill="none">
-  <g fill="white">
+  <!-- XR Logo Mark -->
+  <g fill="currentColor">
+    <!-- X letter - left stroke -->
     <polygon points="10,10 45,10 110,90 45,170 10,170 75,90"/>
+    <!-- X letter - right stroke top -->
     <polygon points="70,10 105,10 140,50 122,72"/>
+    <!-- X letter - right stroke bottom -->
     <polygon points="70,170 105,170 140,130 122,108"/>
+    <!-- R letter - vertical stem -->
     <rect x="120" y="10" width="30" height="160" rx="2"/>
+    <!-- R letter - top bowl -->
     <path d="M135,10 H170 Q200,10 200,45 Q200,75 170,80 H150 L135,80 Z"/>
+    <!-- R letter - leg -->
     <polygon points="155,80 190,170 158,170 130,95"/>
   </g>
 </svg>
