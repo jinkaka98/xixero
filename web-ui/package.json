@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:public": "cross-env VITE_PUBLIC_BUILD=true vite build",
+    "build:local": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

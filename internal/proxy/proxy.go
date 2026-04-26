@@ -1,4 +1,4 @@
-package proxy
+﻿package proxy
 
 import (
 	"bufio"
@@ -28,10 +28,13 @@ func (p *Proxy) HandleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prov, err := p.registry.FindByModel(req.Model)
+	prov, resolvedModel, resolution, err := p.registry.Resolve(req, "chat")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("no provider for model: %s", req.Model))
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if resolvedModel != "" {
+		req.Model = resolvedModel
 	}
 
 	body, err := prov.TransformRequest(req)
@@ -42,9 +45,9 @@ func (p *Proxy) HandleChatCompletions(w http.ResponseWriter, r *http.Request) {
 
 	if req.Stream {
 		p.handleStreaming(w, r, prov, body)
-	} else {
-		p.handleNonStreaming(w, r, prov, body)
+		return
 	}
+	p.handleNonStreaming(w, r, prov, body, resolution)
 }
 
 func (p *Proxy) HandleModels(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +69,7 @@ func (p *Proxy) HandleModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(models.ModelList{
+	_ = json.NewEncoder(w).Encode(models.ModelList{
 		Object: "list",
 		Data:   items,
 	})
@@ -99,7 +102,7 @@ func (p *Proxy) handleStreaming(w http.ResponseWriter, r *http.Request, prov pro
 		respBody, _ := io.ReadAll(resp.Body)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		w.Write(respBody)
+		_, _ = w.Write(respBody)
 		return
 	}
 
@@ -119,18 +122,17 @@ func (p *Proxy) handleStreaming(w http.ResponseWriter, r *http.Request, prov pro
 			return
 		}
 
-		lineStr := string(line)
-		transformed, transformErr := prov.TransformStreamChunk(lineStr)
+		transformed, transformErr := prov.TransformStreamChunk(string(line))
 		if transformErr != nil {
 			continue
 		}
 
-		fmt.Fprint(w, transformed)
+		_, _ = fmt.Fprint(w, transformed)
 		flusher.Flush()
 	}
 }
 
-func (p *Proxy) handleNonStreaming(w http.ResponseWriter, r *http.Request, prov provider.Provider, body []byte) {
+func (p *Proxy) handleNonStreaming(w http.ResponseWriter, r *http.Request, prov provider.Provider, body []byte, resolution models.RoutingResolution) {
 	resp, err := prov.Send(r.Context(), body)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "provider request failed")
@@ -150,13 +152,40 @@ func (p *Proxy) handleNonStreaming(w http.ResponseWriter, r *http.Request, prov 
 		return
 	}
 
+	transformed = injectRoutingMetadata(transformed, resolution)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	w.Write(transformed)
+	_, _ = w.Write(transformed)
+}
+
+func injectRoutingMetadata(payload []byte, resolution models.RoutingResolution) []byte {
+	if len(payload) == 0 {
+		return payload
+	}
+
+	var response map[string]any
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return payload
+	}
+
+	response["x_routing"] = map[string]any{
+		"provider_id":  resolution.ProviderID,
+		"model":        resolution.Model,
+		"rule_id":      resolution.RuleID,
+		"matched_rule": resolution.MatchedRule,
+	}
+
+	enriched, err := json.Marshal(response)
+	if err != nil {
+		return payload
+	}
+
+	return enriched
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(models.APIError{Error: msg})
+	_ = json.NewEncoder(w).Encode(models.APIError{Error: msg})
 }

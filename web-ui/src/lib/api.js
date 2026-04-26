@@ -46,6 +46,35 @@ class XixeroAPI {
   testProvider(data) { return this.request('/api/providers/test', { method: 'POST', body: JSON.stringify(data) }) }
   getConfig() { return this.request('/api/config') }
   updateConfig(data) { return this.request('/api/config', { method: 'PUT', body: JSON.stringify(data) }) }
+  
+  getRoutingRules() { return this.request('/api/routing-rules') }
+  createRoutingRule(data) { return this.request('/api/routing-rules', { method: 'POST', body: JSON.stringify(data) }) }
+  updateRoutingRule(id, data) { return this.request(`/api/routing-rules/${id}`, { method: 'PUT', body: JSON.stringify(data) }) }
+  deleteRoutingRule(id) { return this.request(`/api/routing-rules/${id}`, { method: 'DELETE' }) }
+  
+  async sendChat(data) {
+    const resp = await fetch(`${API_BASE}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Token': this.token,
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (resp.status === 401) {
+      this.clearToken()
+      window.location.reload()
+      throw new Error('Unauthorized')
+    }
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }))
+      throw new Error(err.error || `HTTP ${resp.status}`)
+    }
+
+    return resp.json()
+  }
 }
 
 export const api = new XixeroAPI()

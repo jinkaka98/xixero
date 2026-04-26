@@ -141,7 +141,8 @@ function AddProviderForm({ onClose, onSaved }) {
           <select value={form.type} onChange={(e) => update('type', e.target.value)}
             className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500">
             <option value="enowx">enowX AI</option>
-            <option value="openai">OpenAI</option>
+            <option value="openai">0penAI</option>
+            <option value="trae">Trae</option>
           </select>
         </div>
 

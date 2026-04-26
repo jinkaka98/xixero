@@ -1,4 +1,4 @@
-package models
+﻿package models
 
 type ChatRequest struct {
 	Model       string    `json:"model"`
@@ -46,6 +46,24 @@ type ModelInfo struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
 	OwnedBy string `json:"owned_by"`
+}
+
+type RoutingRule struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	SourceModel    string `json:"source_model"`
+	TargetProvider string `json:"target_provider"`
+	TargetModel    string `json:"target_model"`
+	EndpointType   string `json:"endpoint_type"`
+	Enabled        bool   `json:"enabled"`
+	Priority       int    `json:"priority"`
+}
+
+type RoutingResolution struct {
+	ProviderID  string `json:"provider_id"`
+	Model       string `json:"model"`
+	RuleID      string `json:"rule_id,omitempty"`
+	MatchedRule string `json:"matched_rule,omitempty"`
 }
 
 type APIError struct {

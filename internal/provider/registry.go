@@ -2,19 +2,23 @@ package provider
 
 import (
 	"fmt"
+	"sort"
 
 	"xixero/internal/config"
+	"xixero/internal/models"
 )
 
 type Registry struct {
 	providers map[string]Provider
 	modelMap  map[string]string
+	rules     []config.RoutingRuleConfig
 }
 
-func NewRegistry(configs []config.ProviderConfig) *Registry {
+func NewRegistry(configs []config.ProviderConfig, rules []config.RoutingRuleConfig) *Registry {
 	r := &Registry{
 		providers: make(map[string]Provider),
 		modelMap:  make(map[string]string),
+		rules:     append([]config.RoutingRuleConfig{}, rules...),
 	}
 	for _, cfg := range configs {
 		if !cfg.Enabled {
@@ -22,6 +26,7 @@ func NewRegistry(configs []config.ProviderConfig) *Registry {
 		}
 		_ = r.Register(cfg)
 	}
+	r.sortRules()
 	return r
 }
 
@@ -32,6 +37,8 @@ func (r *Registry) Register(cfg config.ProviderConfig) error {
 		prov = NewEnowX(cfg)
 	case "openai":
 		prov = NewOpenAI(cfg)
+	case "trae":
+		prov = NewTrae(cfg)
 	default:
 		return fmt.Errorf("unknown provider type: %s", cfg.Type)
 	}
@@ -41,6 +48,49 @@ func (r *Registry) Register(cfg config.ProviderConfig) error {
 		r.modelMap[model] = cfg.ID
 	}
 	return nil
+}
+
+func (r *Registry) SetRules(rules []config.RoutingRuleConfig) {
+	r.rules = append([]config.RoutingRuleConfig{}, rules...)
+	r.sortRules()
+}
+
+func (r *Registry) ListRules() []config.RoutingRuleConfig {
+	return append([]config.RoutingRuleConfig{}, r.rules...)
+}
+
+func (r *Registry) Resolve(req models.ChatRequest, endpointType string) (Provider, string, models.RoutingResolution, error) {
+	for _, rule := range r.rules {
+		if !rule.Enabled {
+			continue
+		}
+		if rule.EndpointType != "" && rule.EndpointType != endpointType && rule.EndpointType != "*" {
+			continue
+		}
+		if rule.SourceModel != "" && rule.SourceModel != req.Model && rule.SourceModel != "*" {
+			continue
+		}
+		prov, err := r.FindByID(rule.TargetProvider)
+		if err != nil {
+			continue
+		}
+		resolvedModel := req.Model
+		if rule.TargetModel != "" {
+			resolvedModel = rule.TargetModel
+		}
+		return prov, resolvedModel, models.RoutingResolution{
+			ProviderID:  prov.ID(),
+			Model:       resolvedModel,
+			RuleID:      rule.ID,
+			MatchedRule: rule.Name,
+		}, nil
+	}
+
+	prov, err := r.FindByModel(req.Model)
+	if err != nil {
+		return nil, "", models.RoutingResolution{}, err
+	}
+	return prov, req.Model, models.RoutingResolution{ProviderID: prov.ID(), Model: req.Model}, nil
 }
 
 func (r *Registry) Unregister(id string) {
@@ -81,6 +131,7 @@ func (r *Registry) ListAll() []Provider {
 	for _, p := range r.providers {
 		result = append(result, p)
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID() < result[j].ID() })
 	return result
 }
 
@@ -89,5 +140,15 @@ func (r *Registry) ListModels() []string {
 	for model := range r.modelMap {
 		result = append(result, model)
 	}
+	sort.Strings(result)
 	return result
+}
+
+func (r *Registry) sortRules() {
+	sort.SliceStable(r.rules, func(i, j int) bool {
+		if r.rules[i].Priority == r.rules[j].Priority {
+			return r.rules[i].Name < r.rules[j].Name
+		}
+		return r.rules[i].Priority < r.rules[j].Priority
+	})
 }

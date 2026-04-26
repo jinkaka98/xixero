@@ -1,4 +1,4 @@
-package config
+﻿package config
 
 import (
 	"crypto/rand"
@@ -12,12 +12,13 @@ import (
 const defaultVersion = "1.0.0"
 
 type Config struct {
-	Version   string           `json:"version"`
-	Server    ServerConfig     `json:"server"`
-	Providers []ProviderConfig `json:"providers"`
-	License   LicenseConfig    `json:"license"`
-	Logging   LogConfig        `json:"logging"`
-	APIToken  string           `json:"api_token"`
+	Version      string              `json:"version"`
+	Server       ServerConfig        `json:"server"`
+	Providers    []ProviderConfig    `json:"providers"`
+	RoutingRules []RoutingRuleConfig `json:"routing_rules"`
+	License      LicenseConfig       `json:"license"`
+	Logging      LogConfig           `json:"logging"`
+	APIToken     string              `json:"api_token"`
 }
 
 type ServerConfig struct {
@@ -35,11 +36,24 @@ type ProviderConfig struct {
 	Models   []string `json:"models"`
 }
 
+type RoutingRuleConfig struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	SourceModel    string `json:"source_model"`
+	TargetProvider string `json:"target_provider"`
+	TargetModel    string `json:"target_model"`
+	EndpointType   string `json:"endpoint_type"`
+	Enabled        bool   `json:"enabled"`
+	Priority       int    `json:"priority"`
+}
+
 type LicenseConfig struct {
-	Key         string   `json:"key"`
-	ValidatedAt string   `json:"validated_at"`
-	ExpiresAt   string   `json:"expires_at"`
-	Features    []string `json:"features"`
+	Key                 string   `json:"key"`
+	ValidatedAt         string   `json:"validated_at"`
+	ExpiresAt           string   `json:"expires_at"`
+	Features            []string `json:"features"`
+	ValidationURLSource string   `json:"validation_url_source,omitempty"`
+	RevalidationDays    int      `json:"revalidation_days,omitempty"`
 }
 
 type LogConfig struct {
@@ -62,7 +76,6 @@ func Load() (*Config, error) {
 		if os.IsNotExist(err) {
 			return CreateDefault()
 		}
-
 		return nil, fmt.Errorf("read config: %w", err)
 	}
 
@@ -70,7 +83,12 @@ func Load() (*Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
-
+	if cfg.Providers == nil {
+		cfg.Providers = []ProviderConfig{}
+	}
+	if cfg.RoutingRules == nil {
+		cfg.RoutingRules = []RoutingRuleConfig{}
+	}
 	return &cfg, nil
 }
 
@@ -78,16 +96,13 @@ func (c *Config) Save() error {
 	if err := os.MkdirAll(ConfigDir(), 0o755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
-
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
-
 	if err := os.WriteFile(ConfigPath(), data, 0o644); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
-
 	return nil
 }
 
@@ -103,8 +118,9 @@ func CreateDefault() (*Config, error) {
 			Host: "127.0.0.1",
 			Port: 7860,
 		},
-		Providers: []ProviderConfig{},
-		License:   LicenseConfig{},
+		Providers:    []ProviderConfig{},
+		RoutingRules: []RoutingRuleConfig{},
+		License:      LicenseConfig{},
 		Logging: LogConfig{
 			Level:        "info",
 			LogRequests:  true,
@@ -116,6 +132,5 @@ func CreateDefault() (*Config, error) {
 	if err := cfg.Save(); err != nil {
 		return nil, err
 	}
-
 	return cfg, nil
 }

@@ -84,3 +84,16 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)
 }
+
+func (s *Server) licenseMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.enforcer.IsValid() {
+			writeJSON(w, http.StatusForbidden, map[string]string{
+				"error":   "license_required",
+				"message": "Valid license required. Run: xixero activate <key>",
+			})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
