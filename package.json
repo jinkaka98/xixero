@@ -1,0 +1,33 @@
+{
+  "name": "xixero",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "svelte-kit sync || echo ''",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "firebase": "^11.0.0",
+    "lucide-svelte": "^0.500.0"
+  },
+  "devDependencies": {
+    "@skeletonlabs/skeleton": "^4.0.0",
+    "@skeletonlabs/skeleton-svelte": "^1.0.0",
+    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/kit": "^2.57.0",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@tauri-apps/cli": "^2.10.1",
+    "svelte": "^5.55.2",
+    "svelte-check": "^4.4.6",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.7"
+  }
+}

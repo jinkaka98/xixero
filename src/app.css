@@ -1,0 +1,167 @@
+@import 'tailwindcss';
+@import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/cerberus';
+
+/* Force dark mode */
+html {
+	color-scheme: dark;
+}
+
+/* ── Animations ─────────────────────────────────────────────────────── */
+@keyframes fade-in {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes slide-up {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-dot {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.4; }
+}
+
+@keyframes gradient-shift {
+	0% { background-position: 0% 50%; }
+	50% { background-position: 100% 50%; }
+	100% { background-position: 0% 50%; }
+}
+
+@keyframes orb-float-1 {
+	0%, 100% { transform: translate(0, 0) scale(1); }
+	33% { transform: translate(30px, -20px) scale(1.05); }
+	66% { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+@keyframes orb-float-2 {
+	0%, 100% { transform: translate(0, 0) scale(1); }
+	33% { transform: translate(-25px, 25px) scale(0.95); }
+	66% { transform: translate(20px, -15px) scale(1.05); }
+}
+
+.animate-fade-in {
+	animation: fade-in 400ms ease-out both;
+}
+
+.animate-slide-up {
+	animation: slide-up 400ms ease-out both;
+}
+
+.animate-pulse-dot {
+	animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.animate-fade-in,
+	.animate-slide-up,
+	.animate-pulse-dot {
+		animation: none !important;
+	}
+
+	.orb-1, .orb-2, .orb-3 {
+		animation: none !important;
+	}
+
+	* {
+		transition-duration: 0.01ms !important;
+	}
+}
+
+/* ── Glass Card ─────────────────────────────────────────────────────── */
+.glass-card {
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid rgba(255, 255, 255, 0.06);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Gradient Mesh Background ───────────────────────────────────────── */
+.gradient-mesh {
+	background: radial-gradient(ellipse at 20% 50%, rgba(120, 80, 255, 0.15) 0%, transparent 50%),
+	            radial-gradient(ellipse at 80% 20%, rgba(80, 200, 255, 0.1) 0%, transparent 50%),
+	            radial-gradient(ellipse at 50% 80%, rgba(255, 80, 180, 0.08) 0%, transparent 50%);
+}
+
+/* ── Animated Orbs (CSS only) ───────────────────────────────────────── */
+.orb-1 {
+	position: absolute;
+	width: 300px;
+	height: 300px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(120, 80, 255, 0.2) 0%, transparent 70%);
+	animation: orb-float-1 20s ease-in-out infinite;
+	filter: blur(40px);
+}
+
+.orb-2 {
+	position: absolute;
+	width: 250px;
+	height: 250px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(80, 200, 255, 0.15) 0%, transparent 70%);
+	animation: orb-float-2 25s ease-in-out infinite;
+	filter: blur(40px);
+}
+
+.orb-3 {
+	position: absolute;
+	width: 200px;
+	height: 200px;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255, 80, 180, 0.12) 0%, transparent 70%);
+	animation: orb-float-1 30s ease-in-out infinite reverse;
+	filter: blur(40px);
+}
+
+/* ── Active Glow ────────────────────────────────────────────────────── */
+.glow-primary {
+	box-shadow: 0 0 20px rgba(120, 80, 255, 0.3), 0 0 60px rgba(120, 80, 255, 0.1);
+}
+
+.glow-primary-sm {
+	box-shadow: 0 0 12px rgba(120, 80, 255, 0.25);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+}
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Input Focus Glow ───────────────────────────────────────────────── */
+input:focus, select:focus, textarea:focus {
+	outline: none;
+	box-shadow: 0 0 0 2px rgba(120, 80, 255, 0.3);
+}
+
+/* ── Prevent text selection in UI chrome ────────────────────────────── */
+.no-select {
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* ── Tauri window drag region ───────────────────────────────────────── */
+.titlebar-drag {
+	-webkit-app-region: drag;
+}
+.titlebar-nodrag {
+	-webkit-app-region: no-drag;
+}
+
+/* ── Body line-height ───────────────────────────────────────────────── */
+body {
+	line-height: 1.5;
+}
