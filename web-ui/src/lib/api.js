@@ -27,7 +27,6 @@ class XixeroAPI {
 
     if (resp.status === 401) {
       this.clearToken()
-      window.location.reload()
       throw new Error('Unauthorized')
     }
 
@@ -39,7 +38,10 @@ class XixeroAPI {
     return resp.json()
   }
 
-  getStatus() { return this.request('/api/status') }
+  // Status endpoint does NOT require auth token
+  getStatus() {
+    return fetch(`${API_BASE}/api/status`).then(r => r.json())
+  }
   getProviders() { return this.request('/api/providers') }
   addProvider(data) { return this.request('/api/providers', { method: 'POST', body: JSON.stringify(data) }) }
   deleteProvider(id) { return this.request(`/api/providers/${id}`, { method: 'DELETE' }) }
@@ -64,7 +66,6 @@ class XixeroAPI {
 
     if (resp.status === 401) {
       this.clearToken()
-      window.location.reload()
       throw new Error('Unauthorized')
     }
 

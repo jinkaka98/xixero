@@ -103,13 +103,6 @@ func (s *Server) setupMiddleware() {
 func (s *Server) setupRoutes() {
 	h := api.NewHandlers(s.config, s.registry)
 
-	// UI shell - serves HTML that loads React app from GitHub Pages
-	s.router.HandleFunc("/", s.handleUI).Methods(http.MethodGet)
-	s.router.HandleFunc("/auth", s.handleUI).Methods(http.MethodGet)
-	s.router.HandleFunc("/providers", s.handleUI).Methods(http.MethodGet)
-	s.router.HandleFunc("/routing", s.handleUI).Methods(http.MethodGet)
-	s.router.HandleFunc("/chat", s.handleUI).Methods(http.MethodGet)
-
 	proxyRoutes := s.router.PathPrefix("/v1").Subrouter()
 	proxyRoutes.Use(s.licenseMiddleware)
 	proxyRoutes.HandleFunc("/chat/completions", s.proxy.HandleChatCompletions).Methods(http.MethodPost)
@@ -132,6 +125,9 @@ func (s *Server) setupRoutes() {
 	mgmt.HandleFunc("/routing-rules", h.CreateRoutingRule).Methods(http.MethodPost, http.MethodOptions)
 	mgmt.HandleFunc("/routing-rules/{id}", h.UpdateRoutingRule).Methods(http.MethodPut, http.MethodOptions)
 	mgmt.HandleFunc("/routing-rules/{id}", h.DeleteRoutingRule).Methods(http.MethodDelete, http.MethodOptions)
+
+	// Catch-all: serve HTML shell for any non-API GET request (SPA routing)
+	s.router.PathPrefix("/").HandlerFunc(s.handleUI).Methods(http.MethodGet)
 }
 
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
