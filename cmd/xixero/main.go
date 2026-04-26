@@ -67,6 +67,9 @@ func newStartCmd() *cobra.Command {
 				return fmt.Errorf("load config: %w", err)
 			}
 
+			// Redirect logs to file, keep terminal clean
+			server.InitSilentLogging()
+
 			srv := server.New(cfg)
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
@@ -74,17 +77,20 @@ func newStartCmd() *cobra.Command {
 			errCh := make(chan error, 1)
 
 			go func() {
-				fmt.Printf("Xixero listening on http://%s:%d\n", cfg.Server.Host, cfg.Server.Port)
 				if serveErr := srv.Start(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 					errCh <- serveErr
 					return
 				}
-
 				errCh <- nil
 			}()
 
+			// Print clean banner
+			url := fmt.Sprintf("http://localhost:%d", cfg.Server.Port)
+			printBanner(url, cfg)
+
 			select {
 			case <-ctx.Done():
+				fmt.Println("\n  Shutting down...")
 				shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 
@@ -96,17 +102,53 @@ func newStartCmd() *cobra.Command {
 					return fmt.Errorf("server exited: %w", serveErr)
 				}
 
+				fmt.Println("  Stopped.")
 				return nil
 			case serveErr := <-errCh:
 				if serveErr != nil {
 					return fmt.Errorf("start server: %w", serveErr)
 				}
-
 				return nil
 			}
 		},
 	}
 }
+
+func printBanner(url string, cfg *config.Config) {
+	hasLicense := cfg.License.Key != ""
+
+	fmt.Println()
+	fmt.Println("  __  __ ___ __  __ _____ ____   ___  ")
+	fmt.Println("  \\ \\/ /|_ _|\\ \\/ /| ____|  _ \\ / _ \\ ")
+	fmt.Println("   \\  /  | |  \\  / |  _| | |_) | | | |")
+	fmt.Println("   /  \\  | |  /  \\ | |___|  _ <| |_| |")
+	fmt.Println("  /_/\\_\\|___|/_/\\_\\|_____|_| \\_\\\\___/ ")
+	fmt.Println()
+	fmt.Printf("  v%s\n", Version)
+	fmt.Println()
+	fmt.Println("  ----------------------------------------")
+
+	if hasLicense {
+		fmt.Println("  Status    : Active")
+	} else {
+		fmt.Println("  Status    : No license key")
+		fmt.Println()
+		fmt.Println("  Get your activation key:")
+		fmt.Println("    Discord : xixero1445")
+		fmt.Println("    Send DM to request a key")
+		fmt.Println()
+		fmt.Println("  Then run:")
+		fmt.Println("    xixero activate <YOUR-KEY>")
+	}
+
+	fmt.Println("  ----------------------------------------")
+	fmt.Println()
+	fmt.Printf("  Dashboard : %s\n", url)
+	fmt.Println()
+	fmt.Println("  Press Ctrl+C to stop")
+	fmt.Println()
+}
+
 
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{

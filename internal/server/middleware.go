@@ -3,11 +3,31 @@ package server
 import (
 	"crypto/subtle"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"xixero/internal/config"
 )
+
+// InitSilentLogging redirects all zerolog output to a log file instead of stdout.
+// Call this before starting the server to keep the terminal clean.
+func InitSilentLogging() {
+	logDir := config.ConfigDir()
+	os.MkdirAll(logDir, 0o755)
+	logFile, err := os.OpenFile(filepath.Join(logDir, "server.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		// If we can't open log file, just discard logs
+		log.Logger = zerolog.New(io.Discard)
+		return
+	}
+	log.Logger = zerolog.New(logFile).With().Timestamp().Logger()
+}
 
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	allowed := map[string]bool{

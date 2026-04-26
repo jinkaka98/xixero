@@ -64,11 +64,15 @@ export default function AdminLicenses() {
     } catch { /* clipboard not available */ }
   }
 
-  const handleRevoke = async (key) => {
+  const handleRevoke = async (idOrKey) => {
     setShowConfirm(null)
-    setRevoking(key)
+    setRevoking(idOrKey)
     try {
-      await adminApi.revokeLicense(key)
+      // Find the license to get Firestore document ID
+      const lic = licenses.find(l => l.key === idOrKey || l.id === idOrKey)
+      if (lic) {
+        await adminApi.revokeLicense(lic.id)
+      }
       await load()
     } catch (err) {
       setError(err.message)

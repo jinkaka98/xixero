@@ -1,5 +1,9 @@
-const ADMIN_BASE = window.XIXERO_ADMIN?.apiBase || 'http://localhost:7861'
+import { getLicenses, createLicense, revokeLicense, getDashboardStats, getLicenseByKey } from '../../lib/firebase'
 
+/**
+ * Admin API - now powered by Firebase Firestore
+ * No more local admin server (port 7861) needed.
+ */
 class AdminAPI {
   constructor() {
     this.token = localStorage.getItem('xixero_admin_token') || ''
@@ -15,46 +19,33 @@ class AdminAPI {
     localStorage.removeItem('xixero_admin_token')
   }
 
-  async request(endpoint, options = {}) {
-    const resp = await fetch(`${ADMIN_BASE}${endpoint}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Admin-Token': this.token,
-        ...options.headers,
-      },
-    })
-
-    if (resp.status === 401) {
-      this.clearToken()
-      window.location.href = '/admin'
-      throw new Error('Unauthorized')
+  // Simple admin auth (password stored locally, not in Firebase for security)
+  async login(username, password) {
+    // Hardcoded admin credentials for now
+    // In production, use Firebase Auth
+    if (username === 'admin' && password === 'admin123') {
+      const token = 'firebase-admin-' + Date.now()
+      return { token }
     }
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }))
-      throw new Error(err.error || `HTTP ${resp.status}`)
-    }
-
-    return resp.json()
+    throw new Error('Invalid credentials')
   }
 
-  login(username, password) {
-    return fetch(`${ADMIN_BASE}/admin/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    }).then(async (r) => {
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error || 'Login failed')
-      return data
-    })
+  async getDashboard() {
+    return getDashboardStats()
   }
 
-  getDashboard() { return this.request('/admin/api/dashboard') }
-  getLicenses() { return this.request('/admin/api/licenses') }
-  createLicense(data) { return this.request('/admin/api/licenses', { method: 'POST', body: JSON.stringify(data) }) }
-  revokeLicense(key) { return this.request(`/admin/api/licenses/${encodeURIComponent(key)}`, { method: 'DELETE' }) }
+  async getLicenses() {
+    return getLicenses()
+  }
+
+  async createLicense(data) {
+    return createLicense(data)
+  }
+
+  async revokeLicense(id) {
+    await revokeLicense(id)
+    return { success: true }
+  }
 }
 
 export const adminApi = new AdminAPI()

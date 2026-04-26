@@ -161,12 +161,13 @@ func encodeBase32Custom(data []byte) string {
 
 func ValidateKeyFormat(key string) error {
 	parts := strings.Split(key, "-")
-	if len(parts) != 5 || parts[0] != "XIXERO" {
+	// Accept both XIXERO-XXXXX-XXXXX-XXXXX (4 parts) and XIXERO-XXXXX-XXXXX-XXXXX-XXXXX (5 parts)
+	if len(parts) < 4 || parts[0] != "XIXERO" {
 		return fmt.Errorf("invalid license key format")
 	}
-	for i := 1; i <= 4; i++ {
-		if len(parts[i]) != 5 {
-			return fmt.Errorf("invalid license key segment length")
+	for i := 1; i < len(parts); i++ {
+		if len(parts[i]) < 3 {
+			return fmt.Errorf("invalid license key segment")
 		}
 	}
 	return nil
