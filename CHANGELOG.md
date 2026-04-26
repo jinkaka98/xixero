@@ -8,6 +8,45 @@ Format: [Semantic Versioning](https://semver.org/)
 
 ---
 
+## [1.0.3] - 2026-04-26
+
+### Added
+- New CLI commands: `xixero license <KEY>`, `xixero stop`, `xixero status`
+- Running `xixero` without subcommand now starts the server (same as `xixero start`)
+- Firebase Firestore license validation (replaces admin server + tunnel)
+- One-click installer exe (xixero-setup.exe) - no terminal needed
+- API token auto-injected into web UI by Go server
+- Silent logging (all logs to file, clean terminal)
+
+### Changed
+- License activation moved to terminal only (`xixero license <KEY>`)
+- Web UI no longer has login/auth page - opens directly to dashboard
+- Server blocked from starting without valid license
+- Banner shows Discord contact (@xixero1445) for license keys
+- Installer runs hidden, auto-starts server, auto-opens browser
+
+### Removed
+- Auth/login page from web UI (TokenInput, useAuth)
+- Disconnect button from sidebar
+- Admin server dependency (port 7861)
+- Cloudflare tunnel requirement
+- BoltDB local database dependency
+
+---
+
+## [1.0.2] - 2026-04-26
+
+### Added
+- One-click installer exe with embedded binary
+- Firebase Firestore integration for license validation
+- Silent logging to file
+
+### Changed
+- Install via single exe instead of PowerShell script
+- License validation via Firebase REST API
+
+---
+
 ## [1.0.1] - 2026-04-26
 
 ### Added
